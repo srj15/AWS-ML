@@ -1,0 +1,49 @@
+import cv2
+import boto3
+from contextlib import closing
+from pygame import mixer
+
+ 
+video=cv2.VideoCapture(0)
+check, frame = video.read()
+cv2.imshow("Color Frame",frame)
+
+if __name__ == "__main__":
+    client = boto3.client('rekognition',
+    region_name='us-east-1'
+    )
+    response = client.search_faces_by_image(
+        CollectionId='photo-Rekognition',
+        Image={
+            'Bytes': cv2.imencode('.jpg', frame)[1].tobytes()
+        }
+    )
+
+    if len(response['FaceMatches']) > 0: 
+        res = 'The person is ' + response['FaceMatches'][0]['Face']['ExternalImageId']
+        print(res)
+
+    else:
+        res = 'Sorry, Face not rekognized.'
+        print('Face not rekognized.')
+
+    client = boto3.client('polly',
+        region_name='us-east-1'
+    ) 
+
+    response = client.synthesize_speech(Text=res, OutputFormat='mp3', VoiceId='Joanna')
+
+    if "AudioStream" in response:
+        with closing(response["AudioStream"]) as stream:
+            data = stream.read()
+            fo = open("pollytest.mp3", "wb")
+            fo.write( data )
+            fo.close()
+
+    mixer.init()
+    mixer.music.load("pollytest.mp3")
+    mixer.music.play()
+
+video.release()
+cv2.waitKey(0)
+cv2.destroyAllWindows()
